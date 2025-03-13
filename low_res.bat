@@ -13,13 +13,21 @@ REM    - If the extracted filename is a single capital letter, the original file
 REM 2. Converts all videos to a resolution of 320x180.
 REM 3. If the video is less than 1 hour long, it is converted without splitting.
 REM 4. If the video is 1 hour or longer:
-REM    - It is split into **equal parts**, ensuring all parts are the same length.
+REM    - It is split into **equal parts**, ensuring all parts are nearly the same length.
 REM    - Each segment is at most 50 minutes (3000 seconds) long.
-REM    - The last segment is adjusted to maintain equal segment lengths.
+REM    - If the last segment is too short, the segment length is adjusted to avoid very short clips.
 REM 5. The processed videos are stored in the "low_res" folder.
 REM ==============================================================
 
 mkdir "low_res"
+
+REM Check if there are any .mp4 files in the folder
+dir /b *.mp4 >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    ECHO No .mp4 files found. Exiting...
+    PAUSE
+    EXIT /B
+)
 
 for %%A in (*.mp4) do (
     REM Debug: Show which file is being processed
@@ -96,12 +104,21 @@ for %%A in (*.mp4) do (
                 REM Calculate number of equal segments
                 set /A NUM_SEGMENTS=!DURATION! / MAX_SEGMENT_LENGTH
                 set /A REMAINDER=!DURATION! %% MAX_SEGMENT_LENGTH
-                
-                REM If there’s a remainder, increase number of segments to make them all equal
+
+                REM If there’s a remainder, increase the number of segments
                 if !REMAINDER! GTR 0 set /A NUM_SEGMENTS+=1
 
-                REM Recalculate segment length so all parts are equal
+                REM Adjust segment length to ensure the last part isn't too short
                 set /A SEGMENT_LENGTH=!DURATION! / !NUM_SEGMENTS!
+
+                REM Ensure the last segment is at least 80% of the other segments
+                set /A LAST_SEGMENT_LENGTH=!DURATION! - (SEGMENT_LENGTH * (!NUM_SEGMENTS!-1))
+                set /A MIN_LAST_SEGMENT=!SEGMENT_LENGTH! * 80 / 100
+
+                if !LAST_SEGMENT_LENGTH! LSS !MIN_LAST_SEGMENT! (
+                    set /A SEGMENT_LENGTH=!DURATION! / (!NUM_SEGMENTS!-1)
+                    set /A NUM_SEGMENTS-=1
+                )
 
                 ECHO Splitting "%%A" into !NUM_SEGMENTS! equal parts of !SEGMENT_LENGTH! seconds each
 
@@ -121,4 +138,7 @@ for %%A in (*.mp4) do (
     )
 )
 
+ECHO.
+ECHO All videos have been successfully processed!
 PAUSE
+EXIT /B
