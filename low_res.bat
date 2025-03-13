@@ -14,12 +14,12 @@ REM 2. Converts all videos to a resolution of 320x180.
 REM 3. If the video is less than 1 hour long, it is converted without splitting.
 REM 4. If the video is 1 hour or longer:
 REM    - It is split into **equal parts**, ensuring all parts are nearly the same length.
-REM    - Each segment is at most 50 minutes (3000 seconds) long.
+REM    - Each segment is at most 59 minutes (3540 seconds) long.
 REM    - If the last segment is too short, the segment length is adjusted to avoid very short clips.
 REM 5. The processed videos are stored in the "low_res" folder.
 REM ==============================================================
 
-mkdir "low_res"
+mkdir "low_res" 2>nul
 
 REM Check if there are any .mp4 files in the folder
 dir /b *.mp4 >nul 2>&1
@@ -39,7 +39,7 @@ for %%A in (*.mp4) do (
     REM Initialize modified filename
     set "NEWNAME="
 
-    REM Loop through each character in FILENAME and keep only uppercase letters and numbers
+    REM Extract only capital letters and numbers from the filename
     for /L %%I in (0,1,255) do (
         set "CHAR=!FILENAME:~%%I,1!"
         for %%J in (A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 0 1 2 3 4 5 6 7 8 9) do (
@@ -47,7 +47,7 @@ for %%A in (*.mp4) do (
         )
     )
 
-    REM If NEWNAME contains only one capital letter, revert to the original filename
+    REM If the NEWNAME contains only one capital letter, revert to the original filename
     if defined NEWNAME (
         set "CHECK=!NEWNAME!"
         set "LENGTH=0"
@@ -57,7 +57,7 @@ for %%A in (*.mp4) do (
             if not "!CHECK:~%%I,1!"=="" set /A LENGTH+=1
         )
 
-        if !LENGTH! EQU 1 set "NEWNAME=!FILENAME!"
+        if !LENGTH! LEQ 1 set "NEWNAME=!FILENAME!"
     ) else (
         set "NEWNAME=!FILENAME!"
     )
@@ -98,8 +98,8 @@ for %%A in (*.mp4) do (
                 ECHO Video is less than 1 hour, converting without splitting...
                 ffmpeg -i "%%A" -vf scale=320:180 -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -y "low_res/!NEWNAME!.mp4"
             ) else (
-                REM Define maximum segment length (3000 seconds)
-                set /A MAX_SEGMENT_LENGTH=3000
+                REM Define maximum segment length (3540 seconds)
+                set /A MAX_SEGMENT_LENGTH=3540
                 
                 REM Calculate number of equal segments
                 set /A NUM_SEGMENTS=!DURATION! / MAX_SEGMENT_LENGTH
